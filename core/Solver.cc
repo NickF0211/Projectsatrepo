@@ -352,7 +352,6 @@ Lit Solver::pickBranchLit()
     return mkLit(next, polarity[next]);
 }
 
-
 void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_toclear){
     
     if (out_learnt.size() == 1){
@@ -492,16 +491,19 @@ void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_
             }
 
             if (i_uip_sum_activity / new_out_learnt.size() < one_uip_sum_activity / out_learnt.size()){
+                
+                for (int i=0; i < new_out_learnt.size(); i++){
+                        seen[var(new_out_learnt[i])] = 0;
+                    }
 
                 if (!VSIDS){
                     for (int i=0; i < analyze_toclear.size(); i++){
                         if (seen[var(analyze_toclear[i])] == 0){
                             seen[var(analyze_toclear[i])] = 1;
-                            new_out_learnt.push(analyze_toclear[i]);
                         }
                     }
                 }
-                new_out_learnt.copyTo(analyze_toclear);
+
                 new_out_learnt.clear();
 
                 return;
@@ -512,7 +514,7 @@ void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_
         if (i_active){
             //increase activity score for new literals in the learned clause 
             std::set<Lit> lit_map;
-            for (int i =0; i < out_learnt.size(); i++){
+            for (int i=0; i < analyze_toclear.size(); i ++){
                 Lit q = out_learnt[i];
                 lit_map.insert(q);
             }
@@ -533,16 +535,32 @@ void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_
         out_learnt.clear();
         new_out_learnt.copyTo(out_learnt);
     }
-    if (!VSIDS){
+
+    //clean up, revert back to initial state for seen if we don't intend to change activity
+    if (!i_active){
+        for (int i=0; i < new_out_learnt.size(); i++){
+            seen[var(new_out_learnt[i])] = 0;
+        }
         for (int i=0; i < analyze_toclear.size(); i++){
-            if (seen[var(analyze_toclear[i])] == 0){
-                seen[var(analyze_toclear[i])] = 1;
-                new_out_learnt.push(analyze_toclear[i]);
+            seen[var(analyze_toclear[i])] = 1;
+        }
+        return;
+    }else{
+        if (!VSIDS){
+            for (int i=0; i < analyze_toclear.size(); i++){
+                if (seen[var(analyze_toclear[i])] == 0){
+                    seen[var(analyze_toclear[i])] = 1;
+                    new_out_learnt.push(analyze_toclear[i]);
+                }
             }
         }
+        new_out_learnt.copyTo(analyze_toclear);
+        new_out_learnt.clear();
+        return;
     }
-    new_out_learnt.copyTo(analyze_toclear);
-    new_out_learnt.clear();
+
+   
+    
 }
 
 /*_________________________________________________________________________________________________
@@ -673,7 +691,10 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, int& ou
             out_lbd = computeLBD(out_learnt); // Recompute LBD if minimized.
     
     //i-uip clause minimization
+    vec<Lit> old_out_learnt;
     if(i_uip){
+        if (!VSIDS && ! i_active)
+            out_learnt.copyTo(old_out_learnt);
         i_uip_analyze(out_learnt, decisionLevel(), analyze_toclear);
     }
     adjusted_tot_literals += out_learnt.size();
@@ -704,17 +725,32 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, int& ou
         add_tmp.clear();
     }else{
         seen[var(p)] = true;
-        for(int i = out_learnt.size() - 1; i >= 0; i--){
-            Var v = var(out_learnt[i]);
-            CRef rea = reason(v);
-            if (rea != CRef_Undef){
-                const Clause& reaC = ca[rea];
-                for (int i = 0; i < reaC.size(); i++){
-                    Lit l = reaC[i];
-                    if (!seen[var(l)]){
-                        seen[var(l)] = true;
-                        almost_conflicted[var(l)]++;
-                        analyze_toclear.push(l); } } } } }
+        if (i_uip && !i_active){
+        for(int i = old_out_learnt.size() - 1; i >= 0; i--){
+                    Var v = var(out_learnt[i]);
+                    CRef rea = reason(v);
+                    if (rea != CRef_Undef){
+                        const Clause& reaC = ca[rea];
+                        for (int i = 0; i < reaC.size(); i++){
+                            Lit l = reaC[i];
+                            if (!seen[var(l)]){
+                                seen[var(l)] = true;
+                                almost_conflicted[var(l)]++;
+                                analyze_toclear.push(l); } } } } }
+                    
+        else{
+            for(int i = out_learnt.size() - 1; i >= 0; i--){
+                Var v = var(out_learnt[i]);
+                CRef rea = reason(v);
+                if (rea != CRef_Undef){
+                    const Clause& reaC = ca[rea];
+                    for (int i = 0; i < reaC.size(); i++){
+                        Lit l = reaC[i];
+                        if (!seen[var(l)]){
+                            seen[var(l)] = true;
+                            almost_conflicted[var(l)]++;
+                            analyze_toclear.push(l); } } } } }
+        }
 
     for (int j = 0; j < analyze_toclear.size(); j++) seen[var(analyze_toclear[j])] = 0;    // ('seen[]' is now cleared)
     //for (int j = 0; j < new_literals.size(); j++) seen[var(new_literals[j])] = 0; 
@@ -1757,3 +1793,5 @@ bool Solver::implExistsByBin(Lit p, bool use_bin_learnts) const {
 }
 
 bool Solver::isRoot(Lit p, bool use_bin_learnts) const { return !implExistsByBin(~p, use_bin_learnts); }
+
+
