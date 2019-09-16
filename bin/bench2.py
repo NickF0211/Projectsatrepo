@@ -42,7 +42,7 @@ SOLVERS = {
     #"i-uip-lbd-smart"  : "./maplesat_static -i-uip -lbd-uip -smart-learn  -cpu-lim=2000",
     #"i-uip-mini"  : "./minisat_static -i-uip -i-mini -cpu-lim=2000",
     #i-uip"  : "./minisat_static -i-uip -cpu-lim=2000",
-    #"i-uip-mini-active-greedy"  : "./minisat_static -i-uip -i-mini -i-active -i-active-greedy -cpu-lim=2000",
+    "i-uip-mini-active-greedy"  : "./minisat_static -i-uip -i-mini -i-active -i-active-greedy -cpu-lim=2000"
     #"i-uip-mini-active"  : "./minisat_static -i-uip -i-mini -i-active -cpu-lim=2000",
     #"i-uip-mini-greedy"  : "./minisat_static -i-uip -i-mini -i-active-greedy -cpu-lim=2000",
     #"i-uip-mini"  : "./minisat_static -i-uip -i-mini -cpu-lim=2000",
@@ -50,7 +50,7 @@ SOLVERS = {
     #"i-uip"  : "./minisat_static -i-uip -i-mini -cpu-lim=2000",
     #"1-uip_neo": "./maplesat_static_mult  -cpu-lim=300",
     #"i-uip-lbd-mult": "./maplesat_static_mult  -i-uip -lbd-uip -cpu-lim=5000",
-    "1-uip": "./minisat_static  -cpu-lim=2000"
+    #"1-uip": "./minisat_static  -cpu-lim=2000"
 }
 
 def output2result(problem, output):
