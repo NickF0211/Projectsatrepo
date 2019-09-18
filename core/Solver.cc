@@ -58,6 +58,7 @@ static BoolOption    opt_i_uip             (_cat, "i-uip",     "Use i-uip to red
 static BoolOption    opt_i_mini            (_cat, "i-mini",     "greedily choose shorter learned clause",  false);
 static BoolOption    opt_i_active          (_cat, "i-active",   "increase literals appear in the i-uip clause",  false);
 static BoolOption    opt_i_active_greedy   (_cat, "i-active-greedy",   "only use i-uip clause if the average literal activities is higher",  false);
+static BoolOption    opt_i_dual            (_cat, "i-dual",   "learn both 1-uip and i-uip clause if they differ a lot",  false);
 
 
 //=================================================================================================
@@ -90,6 +91,7 @@ Solver::Solver() :
   , i_mini           (opt_i_mini)
   , i_active         (opt_i_active)
   , i_active_greedy  (opt_i_active_greedy)
+  , i_dual           (opt_i_dual)
 
     // Parameters (the rest):
     //
@@ -523,7 +525,7 @@ void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_
                 Lit q = new_out_learnt[i];
                 if(lit_map.find(q) == lit_map.end()){
                     if (VSIDS){
-                    varBumpActivity(var(q), .5);
+                    varBumpActivity(var(q), 1.0);
                     add_tmp.push(q);
                     }else{
                         conflicted[var(q)]++;
@@ -531,9 +533,26 @@ void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_
                 }
              } 
         }
+        if (i_dual){
+                CRef cr = ca.alloc(new_out_learnt, true);
+                int lbd = computeLBD(out_learnt);
+                ca[cr].set_lbd(lbd-1);
+                if (lbd <= core_lbd_cut){
+                    learnts_core.push(cr);
+                    ca[cr].mark(CORE);
+                }else if (lbd <= 6){
+                    learnts_tier2.push(cr);
+                    ca[cr].mark(TIER2);
+                    ca[cr].touched() = conflicts;
+                }else{
+                    learnts_local.push(cr);
+                    claBumpActivity(ca[cr]); }
+                attachClause(cr);
 
-        out_learnt.clear();
-        new_out_learnt.copyTo(out_learnt);
+        }else{
+            out_learnt.clear();
+            new_out_learnt.copyTo(out_learnt);
+        }
     }
 
     //clean up, revert back to initial state for seen if we don't intend to change activity
