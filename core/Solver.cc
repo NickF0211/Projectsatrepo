@@ -23,7 +23,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include <math.h>
 #include<algorithm>
 #include<vector>
-#include <set>
+#include <unordered_set>
 #include "mtl/Sort.h"
 #include "core/Solver.h"
 
@@ -360,7 +360,9 @@ void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_
         return;
     }
     //clear all previous seen assignments
-    for (int j = 0; j < analyze_toclear.size(); j++) seen[var(analyze_toclear[j])] = 0; 
+    for (int j = 0; j < analyze_toclear.size(); j++){
+        seen[var(analyze_toclear[j])] = 0; 
+    } 
     //analyze_toclear.clear();
 
  
@@ -395,6 +397,7 @@ void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_
                 new_out_learnt.push(out_learnt[i]);
             }
     }
+
     int top_index =0;
     int current_decision_level = top_i[top_index];
     while (current_decision_level >= lowest_level){
@@ -500,9 +503,7 @@ void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_
 
                 if (!VSIDS){
                     for (int i=0; i < analyze_toclear.size(); i++){
-                        if (seen[var(analyze_toclear[i])] == 0){
                             seen[var(analyze_toclear[i])] = 1;
-                        }
                     }
                 }
 
@@ -515,9 +516,9 @@ void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_
 
         if (i_active){
             //increase activity score for new literals in the learned clause 
-            std::set<Lit> lit_map;
+            std::unordered_set<Lit> lit_map;
             for (int i=0; i < analyze_toclear.size(); i ++){
-                Lit q = out_learnt[i];
+                Lit q = analyze_toclear[i];
                 lit_map.insert(q);
             }
 
