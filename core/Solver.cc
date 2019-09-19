@@ -58,7 +58,7 @@ static BoolOption    opt_i_mini            (_cat, "i-mini",     "greedily choose
 static BoolOption    opt_i_active          (_cat, "i-active",   "increase literals appear in the i-uip clause",  false);
 static BoolOption    opt_i_active_greedy   (_cat, "i-active-greedy",   "only use i-uip clause if the average literal activities is higher",  false);
 static BoolOption    opt_i_dual            (_cat, "i-dual",   "learn both 1-uip and i-uip clause if they differ a lot",  false);
-
+static BoolOption    opt_i_VISID           (_cat, "i-visid",   "enable i-uip only if VISID is on",  false);
 
 //=================================================================================================
 // Constructor/Destructor:
@@ -91,6 +91,7 @@ Solver::Solver() :
   , i_active         (opt_i_active)
   , i_active_greedy  (opt_i_active_greedy)
   , i_dual           (opt_i_dual)
+  , i_VISID          (opt_i_VISID)
 
     // Parameters (the rest):
     //
@@ -361,8 +362,10 @@ void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_
     //clear all previous seen assignments
     for (int j = 0; j < analyze_toclear.size(); j++){
         seen[var(analyze_toclear[j])] = 0; 
-    } 
-    //analyze_toclear.clear();
+    }
+
+    if(VSIDS) 
+        analyze_toclear.clear();
 
  
     vec<Lit> new_out_learnt;
@@ -468,13 +471,6 @@ void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_
     }
     int size_delta = out_learnt.size() - new_out_learnt.size();
 
-    //revert back seen
-    for (int i=0; i < new_out_learnt.size(); i++){
-        seen[var(new_out_learnt[i])] = 0;
-    }
-    for (int i=0; i < analyze_toclear.size(); i++){
-        seen[var(analyze_toclear[i])] = 1;
-    }
 
     //printf("the size improvement is %d\n", out_learnt.size() - new_out_learnt.size());
     if (!i_mini || size_delta > 0){
@@ -503,17 +499,7 @@ void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_
             }
 
             if (i_uip_sum_activity / new_out_learnt.size() < one_uip_sum_activity / out_learnt.size()){
-                
-                for (int i=0; i < new_out_learnt.size(); i++){
-                        seen[var(new_out_learnt[i])] = 0;
-                    }
-
-                if (!VSIDS){
-                    for (int i=0; i < analyze_toclear.size(); i++){
-                            seen[var(analyze_toclear[i])] = 1;
-                    }
-                }
-
+                new_out_learnt.copyTo(analyze_toclear);
                 new_out_learnt.clear();
 
                 return;
@@ -525,14 +511,14 @@ void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_
             //increase activity score for new literals in the learned clause 
              for (int i =0; i < new_out_learnt.size(); i++){
                 Lit q = new_out_learnt[i];
-                if(seen[var(q)] == 0){
-                    if (VSIDS){
-                        varBumpActivity(var(q), 1.0);
-                        add_tmp.push(q);
-                    }else{
-                        conflicted[var(q)]++;
-                    }
+
+                if (VSIDS){
+                    varBumpActivity(var(q), 0.5);
+                    add_tmp.push(q);
+                }else{
+                    conflicted[var(q)]++;
                 }
+                
              } 
         }
 
@@ -559,20 +545,10 @@ void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_
     }
 
     //clean up, revert back to initial state for seen if we don't intend to change activity
-    if (!i_active){
-        return;
-    }else{
-        if (!VSIDS){
-            for (int i=0; i < new_out_learnt.size(); i++){
-                if (seen[var(new_out_learnt[i])] == 0){
-                    seen[var(new_out_learnt[i])] = 1;
-                    analyze_toclear.push(new_out_learnt[i]);
-                }
-            }
-        }
-        new_out_learnt.clear();
-        return;
-    }
+    new_out_learnt.copyTo(analyze_toclear);
+    new_out_learnt.clear();
+    return;
+
 
    
     
@@ -705,13 +681,29 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, int& ou
         if (binResMinimize(out_learnt))
             out_lbd = computeLBD(out_learnt); // Recompute LBD if minimized.
     
+
+    //reason side strengthening
+    if (!VSIDS){        
+            seen[var(p)] = true;
+            for(int i = out_learnt.size() - 1; i >= 0; i--){
+                Var v = var(out_learnt[i]);
+                CRef rea = reason(v);
+                if (rea != CRef_Undef){
+                    const Clause& reaC = ca[rea];
+                    for (int i = 0; i < reaC.size(); i++){
+                        Lit l = reaC[i];
+                        if (!seen[var(l)]){
+                            seen[var(l)] = true;
+                            almost_conflicted[var(l)]++;
+                            analyze_toclear.push(l); } } } } }
+        
+    
+
     //i-uip clause minimization
-    vec<Lit> old_out_learnt;
-    if(i_uip){
-        if (!VSIDS && ! i_active)
-            out_learnt.copyTo(old_out_learnt);
+    if(i_uip && (!i_VISID || VSIDS )){
         i_uip_analyze(out_learnt, decisionLevel(), analyze_toclear);
     }
+
     adjusted_tot_literals += out_learnt.size();
 
     // Find correct backtrack level:
@@ -738,34 +730,8 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, int& ou
                 varBumpActivity(v, 1);
         }
         add_tmp.clear();
-    }else{
-        seen[var(p)] = true;
-        if (i_uip && !i_active){
-        for(int i = old_out_learnt.size() - 1; i >= 0; i--){
-                    Var v = var(out_learnt[i]);
-                    CRef rea = reason(v);
-                    if (rea != CRef_Undef){
-                        const Clause& reaC = ca[rea];
-                        for (int i = 0; i < reaC.size(); i++){
-                            Lit l = reaC[i];
-                            if (!seen[var(l)]){
-                                seen[var(l)] = true;
-                                almost_conflicted[var(l)]++;
-                                analyze_toclear.push(l); } } } } }
-                    
-        else{
-            for(int i = out_learnt.size() - 1; i >= 0; i--){
-                Var v = var(out_learnt[i]);
-                CRef rea = reason(v);
-                if (rea != CRef_Undef){
-                    const Clause& reaC = ca[rea];
-                    for (int i = 0; i < reaC.size(); i++){
-                        Lit l = reaC[i];
-                        if (!seen[var(l)]){
-                            seen[var(l)] = true;
-                            almost_conflicted[var(l)]++;
-                            analyze_toclear.push(l); } } } } }
-        }
+    }
+        
 
     for (int j = 0; j < analyze_toclear.size(); j++) seen[var(analyze_toclear[j])] = 0;    // ('seen[]' is now cleared)
     //for (int j = 0; j < new_literals.size(); j++) seen[var(new_literals[j])] = 0; 
