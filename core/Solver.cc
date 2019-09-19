@@ -23,7 +23,6 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include <math.h>
 #include<algorithm>
 #include<vector>
-#include <unordered_set>
 #include "mtl/Sort.h"
 #include "core/Solver.h"
 
@@ -469,6 +468,14 @@ void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_
     }
     int size_delta = out_learnt.size() - new_out_learnt.size();
 
+    //revert back seen
+    for (int i=0; i < new_out_learnt.size(); i++){
+        seen[var(new_out_learnt[i])] = 0;
+    }
+    for (int i=0; i < analyze_toclear.size(); i++){
+        seen[var(analyze_toclear[i])] = 1;
+    }
+
     //printf("the size improvement is %d\n", out_learnt.size() - new_out_learnt.size());
     if (!i_mini || size_delta > 0){
 
@@ -516,24 +523,19 @@ void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_
 
         if (i_active){
             //increase activity score for new literals in the learned clause 
-            std::unordered_set<Lit> lit_map;
-            for (int i=0; i < analyze_toclear.size(); i ++){
-                Lit q = analyze_toclear[i];
-                lit_map.insert(q);
-            }
-
              for (int i =0; i < new_out_learnt.size(); i++){
                 Lit q = new_out_learnt[i];
-                if(lit_map.find(q) == lit_map.end()){
+                if(seen[var(q)] == 0){
                     if (VSIDS){
-                    varBumpActivity(var(q), 1.0);
-                    add_tmp.push(q);
+                        varBumpActivity(var(q), 1.0);
+                        add_tmp.push(q);
                     }else{
                         conflicted[var(q)]++;
                     }
                 }
              } 
         }
+
         if (i_dual){
                 CRef cr = ca.alloc(new_out_learnt, true);
                 int lbd = computeLBD(out_learnt);
@@ -558,23 +560,16 @@ void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_
 
     //clean up, revert back to initial state for seen if we don't intend to change activity
     if (!i_active){
-        for (int i=0; i < new_out_learnt.size(); i++){
-            seen[var(new_out_learnt[i])] = 0;
-        }
-        for (int i=0; i < analyze_toclear.size(); i++){
-            seen[var(analyze_toclear[i])] = 1;
-        }
         return;
     }else{
         if (!VSIDS){
-            for (int i=0; i < analyze_toclear.size(); i++){
-                if (seen[var(analyze_toclear[i])] == 0){
-                    seen[var(analyze_toclear[i])] = 1;
-                    new_out_learnt.push(analyze_toclear[i]);
+            for (int i=0; i < new_out_learnt.size(); i++){
+                if (seen[var(new_out_learnt[i])] == 0){
+                    seen[var(new_out_learnt[i])] = 1;
+                    analyze_toclear.push(new_out_learnt[i]);
                 }
             }
         }
-        new_out_learnt.copyTo(analyze_toclear);
         new_out_learnt.clear();
         return;
     }
