@@ -185,8 +185,6 @@ public:
     bool      i_mini;
     bool      i_active;
     bool      i_active_greedy;
-    bool      i_dual;
-    bool      i_VISID;
 
     // Statistics: (read-only member variable)
     //
