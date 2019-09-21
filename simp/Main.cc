@@ -48,6 +48,8 @@ void printStats(Solver& solver)
     printf("c conflict literals     : %-12"PRIu64"   (%4.2f %% deleted, %4.2f %% deleted by i-uip)\n", solver.tot_literals, (solver.max_literals - solver.tot_literals)*100 / (double)solver.max_literals, (solver.max_literals - solver.adjusted_tot_literals)*100 / (double)solver.max_literals);
     if (mem_used != 0) printf("c Memory used           : %.2f MB\n", mem_used);
     printf("c core clauses              : %"PRIu64"\n", solver.coreLearnts());
+    printf("c lbds              : %6.4lf \n", solver.lbd_sum_debug / (float) solver.conflicts);
+    printf("c i-uip-percentage              : %g \n", (double) solver.i_uip_decisions / (double) solver.conflicts);
     printf("c CPU time              : %g s\n", cpu_time);
 }
 

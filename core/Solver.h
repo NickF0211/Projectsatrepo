@@ -185,6 +185,11 @@ public:
     bool      i_mini;
     bool      i_active;
     bool      i_active_greedy;
+    bool      i_dual;
+    bool      i_VISID;
+    //variable for recordings
+    float     lbd_sum_debug;
+    int       i_uip_decisions;
 
     // Statistics: (read-only member variable)
     //
@@ -293,7 +298,7 @@ protected:
     CRef     propagate        ();                                                      // Perform unit propagation. Returns possibly conflicting clause.
     void     cancelUntil      (int level);                                             // Backtrack until a certain level.
     void     analyze          (CRef confl, vec<Lit>& out_learnt, int& out_btlevel, int& out_lbd);    // (bt = backtrack)
-    void     i_uip_analyze    (vec<Lit>& out_learn,  int i_level, vec<Lit>& analyze_toclear);        //use i-uip to futher analyze the conflicting clause
+    void     i_uip_analyze    (vec<Lit>& out_learn,  int i_level, vec<Lit>& analyze_toclear, int out_lbd);        //use i-uip to futher analyze the conflicting clause
     void     analyzeFinal     (Lit p, vec<Lit>& out_conflict);                         // COULD THIS BE IMPLEMENTED BY THE ORDINARIY "analyze" BY SOME REASONABLE GENERALIZATION?
     bool     litRedundant     (Lit p, uint32_t abstract_levels);                       // (helper method for 'analyze()')
     lbool    search           (int& nof_conflicts);                                    // Search for a given number of conflicts.
