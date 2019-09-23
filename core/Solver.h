@@ -189,7 +189,11 @@ public:
     bool      i_VISID;
     //variable for recordings
     float     lbd_sum_debug;
-    int       i_uip_decisions;
+    int       i_uip_decisions; 
+    int       i_uip_attempts;
+    int       i_uip_global_decisions;
+    int       i_uip_global_attempts;
+    int       i_uip_gap;
 
     // Statistics: (read-only member variable)
     //

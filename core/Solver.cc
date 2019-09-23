@@ -103,7 +103,10 @@ Solver::Solver() :
   , learntsize_adjust_inc         (1.5)
   ,  lbd_sum_debug      (0)
   ,  i_uip_decisions     (0)
-
+  ,  i_uip_attempts      (0)
+  ,  i_uip_global_decisions (0)
+  ,  i_uip_global_attempts  (0)
+  ,  i_uip_gap           (0)
     // Statistics: (formerly in 'SolverStats')
     //
   , solves(0), starts(0), decisions(0), rnd_decisions(0), propagations(0), conflicts(0), conflicts_VSIDS(0)
@@ -359,9 +362,11 @@ Lit Solver::pickBranchLit()
 void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_toclear, int out_lbd){
     
     int c_size = out_learnt.size();
-    if (c_size == out_lbd){
+    if (c_size <= (out_lbd+ i_uip_gap)){
         return;
     }
+    
+    i_uip_attempts ++;
     //clear all previous seen assignments
     for (int j = 0; j < analyze_toclear.size(); j++){
         seen[var(analyze_toclear[j])] = 0; 
@@ -1307,6 +1312,16 @@ lbool Solver::search(int& nof_conflicts)
                 // Reached bound on number of conflicts:
                 progress_estimate = progressEstimate();
                 cancelUntil(0);
+		if ( ((double)i_uip_decisions / (double)i_uip_attempts) < 0.8){
+                   i_uip_gap += 1;
+                }else{
+                   i_uip_gap = (i_uip_gap == 0) ? 0 : i_uip_gap -1;
+                } 
+		//printf("%g, %d \n", ((double)i_uip_decisions / (double)i_uip_attempts), i_uip_gap);
+                i_uip_global_decisions += i_uip_decisions;
+                i_uip_global_attempts += i_uip_attempts;
+		i_uip_attempts = 0;
+                i_uip_decisions = 0;
                 return l_Undef; }
 
             // Simplify the set of problem clauses:
