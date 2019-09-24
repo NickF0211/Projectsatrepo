@@ -376,6 +376,7 @@ void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_
     }
 
     vec<Lit> to_be_bumped;
+    vec<CRef> clause_to_be_bumped;
 
     if(VSIDS) 
         analyze_toclear.clear();
@@ -452,6 +453,10 @@ void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_
 
             //perform resolution
             if (should_res){
+                if (i_active){
+                    clause_to_be_bumped.push(confl);
+                }
+
                 for (int j = (p == lit_Undef) ? 0 : 1; j < c.size(); j++){
                     Lit q = c[j];
                     int q_level = level(var(q));
@@ -529,7 +534,7 @@ void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_
 
         if (i_active){
             //increase activity score for new literals in the learned clause and transient variables
-             for (int i; i< to_be_bumped.size(); i++){
+             for (int i=0; i< to_be_bumped.size(); i++){
                 Lit q = to_be_bumped[i];
 
                 if (VSIDS){
@@ -538,6 +543,32 @@ void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_
                 }else{
                     conflicted[var(q)]+=1;
                 }
+             }
+
+             //increase clause activity score
+             for (int i=0; i < clause_to_be_bumped.size(); i++){
+                CRef confl = clause_to_be_bumped[i];
+                Clause& c = ca[confl]; 
+                if (c.learnt() && c.mark() != CORE){
+                    int lbd = computeLBD(c);
+                    if (lbd < c.lbd()){
+                        if (c.lbd() <= 30) c.removable(false); // Protect once from reduction.
+                        c.set_lbd(lbd);
+                        if (lbd <= core_lbd_cut){
+                            learnts_core.push(confl);
+                            c.mark(CORE);
+                        }else if (lbd <= 6 && c.mark() == LOCAL){
+                            // Bug: 'cr' may already be in 'learnts_tier2', e.g., if 'cr' was demoted from TIER2
+                            // to LOCAL previously and if that 'cr' is not cleaned from 'learnts_tier2' yet.
+                            learnts_tier2.push(confl);
+                            c.mark(TIER2); }
+                    }
+
+                    if (c.mark() == TIER2)
+                        c.touched() = conflicts;
+                    else if (c.mark() == LOCAL)
+                        claBumpActivity(c);
+                }                 
              }
           
         }
