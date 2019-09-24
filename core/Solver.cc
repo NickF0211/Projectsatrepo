@@ -59,6 +59,7 @@ static BoolOption    opt_i_active          (_cat, "i-active",   "increase litera
 static BoolOption    opt_i_active_greedy   (_cat, "i-active-greedy",   "only use i-uip clause if the average literal activities is higher",  false);
 static BoolOption    opt_i_dual            (_cat, "i-dual",   "learn both 1-uip and i-uip clause if they differ a lot",  false);
 static BoolOption    opt_i_VISID           (_cat, "i-visid",   "enable i-uip only if VISID is on",  false);
+static BoolOption    opt_i_cost            (_cat, "i-cost",   "enable i-uip if the i-uip success rate exceeds target threshold",  true);
 
 //=================================================================================================
 // Constructor/Destructor:
@@ -92,6 +93,7 @@ Solver::Solver() :
   , i_active_greedy  (opt_i_active_greedy)
   , i_dual           (opt_i_dual)
   , i_VISID          (opt_i_VISID)
+  , i_uip_optimize   (opt_i_cost)
 
     // Parameters (the rest):
     //
@@ -362,7 +364,8 @@ Lit Solver::pickBranchLit()
 void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_toclear, int out_lbd){
     
     int c_size = out_learnt.size();
-    if (c_size <= (out_lbd+ i_uip_gap)){
+    int gap_value = i_uip_optimize? i_uip_gap: 0;
+    if (c_size <= (out_lbd+ gap_value)){
         return;
     }
     
@@ -371,6 +374,8 @@ void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_
     for (int j = 0; j < analyze_toclear.size(); j++){
         seen[var(analyze_toclear[j])] = 0; 
     }
+
+    vec<Lit> to_be_bumped;
 
     if(VSIDS) 
         analyze_toclear.clear();
@@ -451,6 +456,11 @@ void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_
                     Lit q = c[j];
                     int q_level = level(var(q));
                     if (!seen[var(q)] && q_level > 0){
+
+                        if (i_active){
+                            to_be_bumped.push(q);
+                        }
+
                         seen[var(q)] = 1;
                         if (q_level >= lowest_level){
                             pathC[q_level-1] ++;
@@ -518,23 +528,24 @@ void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_
         i_uip_decisions++;
 
         if (i_active){
-            //increase activity score for new literals in the learned clause 
-             for (int i =0; i < new_out_learnt.size(); i++){
-                Lit q = new_out_learnt[i];
+            //increase activity score for new literals in the learned clause and transient variables
+             for (int i; i< to_be_bumped.size(); i++){
+                Lit q = to_be_bumped[i];
 
                 if (VSIDS){
-                    varBumpActivity(var(q), 1.0);
+                    varBumpActivity(var(q), 0.5);
                     add_tmp.push(q);
                 }else{
-                    conflicted[var(q)]+=2;
+                    conflicted[var(q)]+=1;
                 }
              }
+          
         }
 
         if (i_dual){
                 CRef cr = ca.alloc(new_out_learnt, true);
-                int lbd = computeLBD(out_learnt);
-                ca[cr].set_lbd(lbd-1);
+                int lbd = out_lbd-1;
+                ca[cr].set_lbd(lbd);
                 if (lbd <= core_lbd_cut){
                     learnts_core.push(cr);
                     ca[cr].mark(CORE);

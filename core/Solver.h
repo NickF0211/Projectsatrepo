@@ -187,6 +187,7 @@ public:
     bool      i_active_greedy;
     bool      i_dual;
     bool      i_VISID;
+    bool      i_uip_optimize;
     //variable for recordings
     float     lbd_sum_debug;
     int       i_uip_decisions; 
