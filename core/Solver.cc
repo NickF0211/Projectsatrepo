@@ -374,6 +374,7 @@ void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_
     i_uip_attempts ++;
 
     vec<Lit> to_be_bumped;
+    vec<Lit> to_be_cleaned;
     vec<CRef> clause_to_be_bumped;
  
     vec<Lit> new_out_learnt;
@@ -403,11 +404,13 @@ void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_
     for(int i = out_learnt.size() - 1; i >= 1; i--){
             Var v = var(out_learnt[i]);
             seen3[v] = true;
+            to_be_cleaned.push(out_learnt[i]);
             if (level(v) < lowest_level){
                 new_out_learnt.push(out_learnt[i]);
             }
     }
     
+    int grace_token = gap_value;
     int top_index =0;
     int current_decision_level = top_i[top_index];
     while (current_decision_level >= lowest_level){
@@ -440,6 +443,15 @@ void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_
                         should_res = false;
                         new_out_learnt.push(~p);
                         seen3[var(~p)] = 1;
+                        to_be_cleaned.push(~p);
+                        grace_token --;
+                        if (grace_token == 0){
+                            //stop
+                            for (int i=0; i< to_be_cleaned.size(); i++){
+                                seen3[var(to_be_cleaned[i])] = 0;
+                            }
+                            return;
+                        }
                         break;
                     }
                 }
@@ -463,6 +475,7 @@ void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_
                         }
 
                         seen3[var(q)] = 1;
+                        to_be_cleaned.push(q);
                         if (q_level >= lowest_level){
                             pathC[q_level-1] ++;
                         }else{
@@ -478,6 +491,7 @@ void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_
             p  = trail[index+1];
             new_out_learnt.push(~p);
             seen3[var(p)] = true;
+            to_be_cleaned.push(p);
         }
 
         //update to next decision level
