@@ -281,6 +281,7 @@ protected:
     vec<Lit>            add_oc;
 
     vec<uint64_t>       seen2;    // Mostly for efficient LBD computation. 'seen2[i]' will indicate if decision level or variable 'i' has been seen.
+    vec<char>       seen3;    // Mostly for i-uip, indicate if variable has been seen.
     uint64_t            counter;  // Simple counter for marking purpose with 'seen2'.
 
     double              max_learnts;

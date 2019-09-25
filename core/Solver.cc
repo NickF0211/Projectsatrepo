@@ -173,6 +173,7 @@ Var Solver::newVar(bool sign, bool dvar)
 
     seen     .push(0);
     seen2    .push(0);
+    seen3    .push(0);
     polarity .push(sign);
     decision .push();
     trail    .capacity(v+1);
@@ -181,6 +182,7 @@ Var Solver::newVar(bool sign, bool dvar)
     // Additional space needed for stamping.
     // TODO: allocate exact memory.
     seen      .push(0);
+    seen3     .push(0);
     discovered.push(0);         discovered.push(0);
     finished  .push(0);         finished  .push(0);
     observed  .push(0);         observed  .push(0);
@@ -400,7 +402,7 @@ void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_
     //now mark all literals in the learnt clause except for the first literal seen
     for(int i = out_learnt.size() - 1; i >= 1; i--){
             Var v = var(out_learnt[i]);
-            seen2[v] = true;
+            seen3[v] = true;
             if (level(v) < lowest_level){
                 new_out_learnt.push(out_learnt[i]);
             }
@@ -414,10 +416,10 @@ void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_
         Lit p;
         while (pathC[current_decision_level - 1] > 1)
         {
-            while (!seen2[var(trail[index--])]);
+            while (!seen3[var(trail[index--])]);
             p  = trail[index+1];
             CRef confl = reason(var(p));
-            seen2[var(p)] = 0;
+            seen3[var(p)] = 0;
             assert(level(var(p)) == current_decision_level);
             pathC[current_decision_level - 1]--;
 
@@ -433,11 +435,11 @@ void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_
             bool should_res = true;
             for (int j = (p == lit_Undef) ? 0 : 1; j < c.size(); j++){
                 Lit q = c[j];
-                if (!seen2[var(q)] && level(var(q)) > 0){
+                if (!seen3[var(q)] && level(var(q)) > 0){
                     if(pathC[level(var(q))-1] == 0){
                         should_res = false;
                         new_out_learnt.push(~p);
-                        seen2[var(~p)] = 1;
+                        seen3[var(~p)] = 1;
                         break;
                     }
                 }
@@ -452,7 +454,7 @@ void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_
                 for (int j = (p == lit_Undef) ? 0 : 1; j < c.size(); j++){
                     Lit q = c[j];
                     int q_level = level(var(q));
-                    if (!seen2[var(q)] && q_level > 0){
+                    if (!seen3[var(q)] && q_level > 0){
 
                         if (i_active){
                             if (!seen[var(q)]){
@@ -460,7 +462,7 @@ void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_
                             }
                         }
 
-                        seen2[var(q)] = 1;
+                        seen3[var(q)] = 1;
                         if (q_level >= lowest_level){
                             pathC[q_level-1] ++;
                         }else{
@@ -472,10 +474,10 @@ void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_
             }
         }
         if (pathC[current_decision_level - 1] > 0){
-            while (!seen2[var(trail[index--])]);
+            while (!seen3[var(trail[index--])]);
             p  = trail[index+1];
             new_out_learnt.push(~p);
-            seen2[var(p)] = true;
+            seen3[var(p)] = true;
         }
 
         //update to next decision level
@@ -517,7 +519,7 @@ void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_
 
             if (i_uip_sum_activity / new_out_learnt.size() < one_uip_sum_activity / out_learnt.size()){
                 for (int i=0; i < new_out_learnt.size(); i++){
-                    seen2[var(new_out_learnt[i])] = 0;
+                    seen3[var(new_out_learnt[i])] = 0;
                 }
 
                 new_out_learnt.clear();
@@ -596,7 +598,7 @@ void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_
     //reason side strengthing
     if (i_active && !VSIDS){
         vec<Lit> to_clear;
-        seen2[var(new_out_learnt[0])] = true;
+        seen3[var(new_out_learnt[0])] = true;
         for(int i = new_out_learnt.size() - 1; i >= 0; i--){
         Var v = var(new_out_learnt[i]);
         CRef rea = reason(v);
@@ -604,20 +606,20 @@ void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_
             const Clause& reaC = ca[rea];
             for (int i = 0; i < reaC.size(); i++){
                 Lit l = reaC[i];
-                if (!seen2[var(l)] && seen[var(l)]){
-                    seen2[var(l)] = true;
+                if (!seen3[var(l)] && seen[var(l)]){
+                    seen3[var(l)] = true;
                     almost_conflicted[var(l)]++;
                     to_clear.push(l); } } } }
         
         for (int i=0; i < to_clear.size(); i++){
-            seen2[var(to_clear[i])] = 0;
+            seen3[var(to_clear[i])] = 0;
         }
         
              
     }
 
     for (int i=0; i < new_out_learnt.size(); i++){
-        seen2[var(new_out_learnt[i])] = 0;
+        seen3[var(new_out_learnt[i])] = 0;
     }
 
     new_out_learnt.clear();
