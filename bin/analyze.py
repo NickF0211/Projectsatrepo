@@ -13,6 +13,8 @@ import os
 RESULTS    = "results/*.csv"
 IMAGE_DIR  = "images"
 
+base_solver=""
+
 
 ### PLOTING HELPERS
 
@@ -284,7 +286,37 @@ def plot_average_len(data, name, average=True, include_overall=False, show_date=
     x_data = list(range(len(choices)))
     y_data_list = []
     solvers = []
+    '''
+    one_uip = data["i-uip-mini_sat15"]
+    all_uip = data["i-uip-mini-greedy_sat15"]
+    comparable_data_cost = []
+    compareable_one = []
+    regular_behavior = 0
+    for i in range(len(all_uip)):
+        i_uip_data = all_uip[i][4]
+        one_uip_data = one_uip[i][4]
+        if (i_uip_data >= one_uip_data and all_uip[i][2]>= one_uip[i][2]):
+            regular_behavior+=1
+        elif (i_uip_data < one_uip_data and all_uip[i][2] < one_uip[i][2]):
+            regular_behavior+=1
 
+
+        comparable_data_cost.append(i_uip_data)
+        compareable_one.append(one_uip_data)
+
+    fraction =  np.round(np.divide(comparable_data_cost, compareable_one) * 100) - 100
+    print (np.sum( np.greater_equal(compareable_one, comparable_data_cost)) / len(compareable_one))
+    print ("regular behvaior percentage %f" %  float(regular_behavior / len(compareable_one)))
+    plt.hist(fraction, normed=True, cumulative=False, label='PDF',
+             histtype='step', alpha=0.8, color='k')
+    #x = np.arange(0, 100, 0.01)
+    #plt.plot(x, x)
+    #plt.axis([0, 100, 0, 100])
+    #plt.title("conflict per decision")
+    #plt.xlabel("all-uip")
+    #plt.ylabel("1-uip")
+    plt.show()
+    '''
     for solver, runs in data.items():
         solvers.append(solver)
         average_len, count = average_len_result(runs)
@@ -676,13 +708,16 @@ def print_average_len(average, choices, solvers, sizes):
 
 #### ENTRY POINT
 def main():
+    global base_solver
     data         = {}
     result_files = glob.glob(RESULTS)
 
     for result in result_files:
         solver       = os.path.basename(result)[:-len(".csv")]
-        data[solver] = np.genfromtxt(result, comments="OMG_WTF", delimiter=',', dtype=None, encoding=None, names=["Instance", "Result", "Time", "conflict_size", "average_len", "reduction", "i_uip_reduction", "mem_use", "core_clause"], skip_header=1)
-        #data[solver] = sorted(data[solver], key=lambda entry: entry[0])
+        if (solver.startswith("1-uip")):
+            base_solver = solver
+        data[solver] = np.genfromtxt(result, comments="OMG_WTF", delimiter=',', dtype=None, encoding=None, names=["Instance", "Result", "Time", "conflict_size", "average_len", "reduction", "i_uip_reduction", "mem_use", "core_clause", "lbd", "i_uip_attempt","i_uip_sucess"], skip_header=1)
+        data[solver] = np.array(sorted(data[solver], key=lambda entry: entry[0]))
     
     check_consensus(data)
     plot_cactus(data, "overall_cactus", out_type="png")

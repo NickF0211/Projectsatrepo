@@ -22,8 +22,8 @@ PROBLEMS = PROBLEMS_SET + "/*.cnf*"
 RESULTS_DIR = "results"
 
 # data
-CSV_HEADER  = "Instance,Result,Time, conflict_size, average_len, reduction, i_uip_reduction, mem_use, core_clause, lbd \n"
-Result      = namedtuple('Result', ('problem', 'result', 'elapsed', 'conflict_size', 'average_len', 'reduction', 'i_uip_reduction', 'mem_use', 'core_clause', 'lbd' ))
+CSV_HEADER  = "Instance,Result,Time, conflict_size, average_len, reduction, i_uip_reduction, mem_use, core_clause, lbd, attempt_rate, success_rate \n"
+Result      = namedtuple('Result', ('problem', 'result', 'elapsed', 'conflict_size', 'average_len', 'reduction', 'i_uip_reduction', 'mem_use', 'core_clause', 'lbd', 'attempt_rate', 'success_rate'))
 
 # constants
 SAT_RESULT     = 'sat'
@@ -42,16 +42,18 @@ SOLVERS = {
     #"i-uip-lbd-smart"  : "./maplesat_static -i-uip -lbd-uip -smart-learn  -cpu-lim=2000",
     #"i-uip-mini"  : "./minisat_static -i-uip -i-mini -cpu-lim=2000",
     #i-uip"  : "./minisat_static -i-uip -cpu-lim=2000",
-    #"i-uip-mini-active-short"  : "./minisat_static_shortcut -i-uip -i-mini -i-active  -cpu-lim=5000 ",
-    #"i-uip-mini-active"  : "./minisat_static -i-uip -i-mini -i-active -cpu-lim=5000 ",
-    #"i-uip-mini-greedy-dual_short"  : "./minisat_static_shortcut -i-uip -i-mini -i-active-greedy  -i-dual -cpu-lim=5000 ",
-    #"i-uip-mini-greedy-dual"  : "./minisat_static -i-uip -i-mini -i-active-greedy -i-dual  -cpu-lim=5000 ",
-    #"i-uip-mini-greedy-dual-visid"  : "./minisat_static -i-uip -i-mini -i-active-greedy -i-dual -i-visid -cpu-lim=5000 ",
-    #"i-uip-mini-active greedy-dual"  : "./minisat_static -i-uip -i-mini -i-active -i-active-greedy -i-dual  -cpu-lim=5000 ",
+    #"i-uip-mini-active-short"  : "./minisat_static_shortcut -i-uip -i-mini -i-active  -cpu-lim=4000 ",
+    "i-uip-mini-active_new"  : "./minisat_static -i-uip -i-mini -i-active -cpu-lim=5000 ",
+    #"i-uip-mini-greedy-dual_short"  : "./minisat_static_shortcut -i-uip -i-mini -i-active-greedy  -i-dual -cpu-lim=4000 ",
+
+    "i-uip-mini-greedy_new"  : "./minisat_static -i-uip -i-mini -i-active-greedy  -cpu-lim=5000 ",
+    "i-uip-mini-active-greedy_new"  : "./minisat_static -i-uip -i-mini -i-active -i-active-greedy  -cpu-lim=5000 ",
+    #"i-uip-mini-greedy-dual-visid_new"  : "./minisat_static -i-uip -i-mini -i-active-greedy -i-dual -i-visid -cpu-lim=5000 ",
+    #"i-uip-mini-active greedy-dual_new"  : "./minisat_static -i-uip -i-mini -i-active -i-active-greedy -i-dual  -cpu-lim=5000 ",
     #"i-uip-mini"  : "./minisat_static -i-uip -i-mini  -cpu-lim=2000 ",
     #"i-uip-mini-active"  : "./minisat_static -i-uip -i-mini -i-active  -cpu-lim=2000 ",
 
-    #"i-uip"  : "./minisat_static -i-uip -i-mini -cpu-lim=2000",
+    "i-uip-mini-new"  : "./minisat_static -i-uip -i-mini -cpu-lim=5000",
     #"1-uip_neo": "./maplesat_static_mult  -cpu-lim=300",
     #"i-uip-lbd-mult": "./maplesat_static_mult  -i-uip -lbd-uip -cpu-lim=5000",
     "1-uip": "./minisat_static -cpu-lim=5000"
@@ -94,6 +96,22 @@ def get_lbd(output):
     else:
         lbd = 0
     return lbd
+
+def get_attempt_rate(output):
+    attempts = re.search("i-uip-attempt-percentage\s+:\s*(0)\s+", output)
+    if attempts is not None:
+        return 0 , 0
+    else:
+        attempts  = re.search("i-uip-attempt-percentage\s+:\s*(\d+\.\d+)\s+", output)
+        if attempts is not None:
+            attempts = attempts.group(1)
+            success = re.search("i-uip-percentage\s+:\s*(\d+\.\d+)\s+", output)
+            if success is not None:
+                return attempts, success.group(1)
+            else:
+                return attempts, 0
+
+    return 0 , 0
 
 
 def get_core_clause(output):
@@ -138,9 +156,9 @@ def run_problem_and_write_result(solver, invocation, problem, fp, lock):
     result = run_problem(solver, invocation,problem)
     lock.acquire()
     try:
-        fp.write("%s,%s,%s, %s,%s, %s, %s, %s, %s, %s\n" % (
+        fp.write("%s,%s,%s, %s,%s, %s, %s, %s, %s, %s ,%s, %s\n" % (
         result.problem, result.result, result.elapsed, result.conflict_size, result.average_len, result.reduction,
-        result.i_uip_reduction, result.mem_use, result.core_clause, result.lbd))
+        result.i_uip_reduction, result.mem_use, result.core_clause, result.lbd , result.attempt_rate, result.success_rate))
     finally:
         lock.release()
 
@@ -186,6 +204,7 @@ def run_problem(solver, invocation, problem):
         average_conflict_c_size, average_len, reduction, i_uip_reduction  = get_average_conflict_cluase_size(stdout)
         memory_use = get_memory_use(stdout)
         core_clause = get_core_clause(stdout)
+        attempt_rate, success_rate = get_attempt_rate(stdout)
         lbd = get_lbd(stdout)
         #reward_score = get_reward_score(stdout)
         #avg_LBD_score = get_avg_LBD(stdout)
@@ -200,6 +219,8 @@ def run_problem(solver, invocation, problem):
         i_uip_reduction = str(i_uip_reduction),
         mem_use = memory_use,
         core_clause = str(core_clause),
+        attempt_rate = attempt_rate,
+        success_rate = success_rate,
         lbd = str(lbd)
     )
     return result
@@ -244,7 +265,8 @@ def run_solver(args, single_solver = False):
                     for problem in problems:
                         if (problem.startswith(problem_set) ) and problem not in finished_instances:
                             result = run_problem(solver, command, problem)
-                            fp.write("%s,%s, %s, %s, %s, %s, %s, %s, %s, %s\n" % (result.problem, result.result, result.elapsed, result.conflict_size, result.average_len, result.reduction, result.i_uip_reduction, result.mem_use, result.core_clause, result.lbd))
+                            fp.write("%s,%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s\n" % (result.problem, result.result, result.elapsed, result.conflict_size, result.average_len, result.reduction, result.i_uip_reduction, result.mem_use, result.core_clause, result.lbd,
+                                                                                  result.attempt_rate, result.success_rate))
 
 
 def signal_handler(signal, frame):
@@ -281,4 +303,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
