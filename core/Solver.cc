@@ -410,7 +410,7 @@ void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_
             }
     }
     
-    int grace_token = gap_value;
+    int grace_token = c_size -out_lbd;
     int top_index =0;
     int current_decision_level = top_i[top_index];
     while (current_decision_level >= lowest_level){
@@ -445,7 +445,8 @@ void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_
                         seen3[var(~p)] = 1;
                         to_be_cleaned.push(~p);
                         grace_token --;
-                        if (grace_token == 0){
+                       	
+			 if (grace_token == 0){
                             //stop
                             for (int i=0; i< to_be_cleaned.size(); i++){
                                 seen3[var(to_be_cleaned[i])] = 0;
@@ -504,9 +505,9 @@ void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_
     }
     int size_delta = out_learnt.size() - new_out_learnt.size();
 
-
     //printf("the size improvement is %d\n", out_learnt.size() - new_out_learnt.size());
     if (!i_mini || size_delta > 0){
+	//printf("%d, %d \n", grace_token, size_delta);
 
         if (i_active_greedy){
             double one_uip_sum_activity = 0;
