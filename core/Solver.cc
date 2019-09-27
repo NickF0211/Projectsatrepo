@@ -60,6 +60,7 @@ static BoolOption    opt_i_active_greedy   (_cat, "i-active-greedy",   "only use
 static BoolOption    opt_i_dual            (_cat, "i-dual",   "learn both 1-uip and i-uip clause if they differ a lot",  false);
 static BoolOption    opt_i_VISID           (_cat, "i-visid",   "enable i-uip only if VISID is on",  false);
 static BoolOption    opt_i_cost            (_cat, "i-cost",   "enable i-uip if the i-uip success rate exceeds target threshold",  true);
+static BoolOption    opt_i_pure_active     (_cat, "i-active-pure",   "only increase active score without learning new clause",  false);
 
 //=================================================================================================
 // Constructor/Destructor:
@@ -94,6 +95,7 @@ Solver::Solver() :
   , i_dual           (opt_i_dual)
   , i_VISID          (opt_i_VISID)
   , i_uip_optimize   (opt_i_cost)
+  , i_active_pure    (opt_i_pure_active)
 
     // Parameters (the rest):
     //
@@ -604,8 +606,10 @@ void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_
                 attachClause(cr);
 
         }else{
-            out_learnt.clear();
-            new_out_learnt.copyTo(out_learnt);
+            if (!i_active_pure){
+              out_learnt.clear();            
+              new_out_learnt.copyTo(out_learnt);
+            }
         }
     }
     //clean up, revert back to initial state for seen if we don't intend to change activity
