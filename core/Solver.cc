@@ -448,7 +448,7 @@ void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_
                         to_be_cleaned.push(~p);
                         grace_token --;
                        	
-			 if (grace_token == 0){
+			            if (grace_token == 0){
                             //stop
                             for (int i=0; i< to_be_cleaned.size(); i++){
                                 seen3[var(to_be_cleaned[i])] = 0;
@@ -549,6 +549,15 @@ void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_
         i_uip_decisions++;
 
         if (i_active){
+            //increase common elements in the i-uip clause futher to encourage branching on
+            //the new implied literals 
+            for (int i = 0; i< new_out_learnt.size(); i++){
+                Lit q = new_out_learnt[i];
+                if (seen[var(q)]){
+                    to_be_bumped.push(q);
+                }
+            }
+
             //increase activity score for new literals in the learned clause and transient variables
              for (int i=0; i< to_be_bumped.size(); i++){
                 Lit q = to_be_bumped[i];
