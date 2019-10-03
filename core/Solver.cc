@@ -634,7 +634,7 @@ void Solver::i_uip_analyze(vec<Lit>& out_learnt, int i_level, vec<Lit>& analyze_
             const Clause& reaC = ca[rea];
             for (int i = 0; i < reaC.size(); i++){
                 Lit l = reaC[i];
-                if (!seen3[var(l)] && seen[var(l)]){
+                if (!seen3[var(l)]){
                     seen3[var(l)] = true;
                     almost_conflicted[var(l)]++;
                     to_clear.push(l); } } } }
@@ -781,22 +781,6 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, int& ou
         if (binResMinimize(out_learnt))
             out_lbd = computeLBD(out_learnt); // Recompute LBD if minimized.
     
-
-    //reason side strengthening
-    if (!VSIDS){        
-            seen[var(p)] = true;
-            for(int i = out_learnt.size() - 1; i >= 0; i--){
-                Var v = var(out_learnt[i]);
-                CRef rea = reason(v);
-                if (rea != CRef_Undef){
-                    const Clause& reaC = ca[rea];
-                    for (int i = 0; i < reaC.size(); i++){
-                        Lit l = reaC[i];
-                        if (!seen[var(l)]){
-                            seen[var(l)] = true;
-                            almost_conflicted[var(l)]++;
-                            analyze_toclear.push(l); } } } } }
-        
     
 
     //i-uip clause minimization
@@ -831,6 +815,21 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, int& ou
         }
         add_tmp.clear();
     }
+    //reason side strengthening
+    else{        
+            seen[var(p)] = true;
+            for(int i = out_learnt.size() - 1; i >= 0; i--){
+                Var v = var(out_learnt[i]);
+                CRef rea = reason(v);
+                if (rea != CRef_Undef){
+                    const Clause& reaC = ca[rea];
+                    for (int i = 0; i < reaC.size(); i++){
+                        Lit l = reaC[i];
+                        if (!seen[var(l)]){
+                            seen[var(l)] = true;
+                            almost_conflicted[var(l)]++;
+                            analyze_toclear.push(l); } } } } }
+        
         
 
     for (int j = 0; j < analyze_toclear.size(); j++) seen[var(analyze_toclear[j])] = 0;    // ('seen[]' is now cleared)
